@@ -13,7 +13,7 @@ const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 // Charge la config d'une boutique depuis shops.json
 function getShop(shopId) {
   try {
-    var shops = JSON.parse(fs.readFileSync('shops.json'));
+    var shops = JSON.parse(fs.readFileSync('shop.json'));
     return shops[shopId] || shops['SHOP_001'];
   } catch(e) {
     return {

@@ -1,14 +1,32 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
+
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
+// Charge la config d'une boutique depuis shops.json
+function getShop(shopId) {
+  try {
+    var shops = JSON.parse(fs.readFileSync('shops.json'));
+    return shops[shopId] || shops['SHOP_001'];
+  } catch(e) {
+    return {
+      name: 'Boutique',
+      returnPolicy: '30 jours',
+      shippingDays: '3 à 5',
+      color: '#4F46E5'
+    };
+  }
+}
+
 async function askMistral(userMessage, shopConfig) {
-  const systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". "
+  var systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". "
     + "Tu reponds SEULEMENT aux questions sur les commandes, livraisons, retours, produits et paiements. "
     + "Politique de retours : " + shopConfig.returnPolicy + ". "
     + "Delai de livraison : " + shopConfig.shippingDays + " jours ouvrés. "
@@ -16,7 +34,7 @@ async function askMistral(userMessage, shopConfig) {
     + "Je suis uniquement disponible pour vous aider avec vos achats sur " + shopConfig.name + ". "
     + "Ne reponds JAMAIS a des questions hors boutique.";
 
-  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+  var response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -31,23 +49,27 @@ async function askMistral(userMessage, shopConfig) {
     })
   });
 
-  const data = await response.json();
+  var data = await response.json();
   return data.choices[0].message.content;
 }
 
+// Route chat — accepte un shopId
 app.post('/chat', async (req, res) => {
-  const shopConfig = {
-    name: 'Ma Boutique Test',
-    returnPolicy: '30 jours apres reception, article non utilise',
-    shippingDays: '3 a 5'
-  };
+  var shopId = req.body.shopId || 'SHOP_001';
+  var shopConfig = getShop(shopId);
   try {
-    const reply = await askMistral(req.body.message, shopConfig);
+    var reply = await askMistral(req.body.message, shopConfig);
     res.json({ success: true, reply: reply });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, reply: 'Erreur serveur.' });
   }
+});
+
+// Route config — retourne la config publique d'une boutique
+app.get('/config/:shopId', (req, res) => {
+  var shop = getShop(req.params.shopId);
+  res.json({ name: shop.name, color: shop.color });
 });
 
 app.get('/', (req, res) => {

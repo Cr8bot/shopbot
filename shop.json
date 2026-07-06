@@ -1,0 +1,14 @@
+{
+  "SHOP_001": {
+    "name": "Ma Boutique Test",
+    "returnPolicy": "30 jours après réception, article non utilisé",
+    "shippingDays": "3 à 5",
+    "color": "#4F46E5"
+  },
+  "SHOP_002": {
+    "name": "ModeLux Paris",
+    "returnPolicy": "14 jours, article dans son emballage d'origine",
+    "shippingDays": "2 à 3",
+    "color": "#E11D48"
+  }
+}

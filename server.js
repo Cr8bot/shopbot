@@ -4,7 +4,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 app.use(express.json());
-
+app.use(express.static('.'));
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
 async function askMistral(userMessage, shopConfig) {

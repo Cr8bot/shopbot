@@ -9,8 +9,6 @@ app.use(express.json());
 app.use(express.static('.'));
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
-const SHOPIFY_URL = process.env.SHOPIFY_URL;
-const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN;
 
 // Charge la config d'une boutique depuis shop.json
 function getShop(shopId) {
@@ -22,27 +20,34 @@ function getShop(shopId) {
       name: 'Boutique',
       returnPolicy: '30 jours',
       shippingDays: '3 à 5',
-      color: '#4F46E5'
+      color: '#4F46E5',
+      shopifyUrl: '',
+      shopifyToken: ''
     };
   }
 }
 
-// Cherche une commande sur Shopify par numéro
-async function getShopifyOrder(orderNumber) {
+// Cherche une commande sur Shopify avec les clés de la boutique
+async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
+  if (!shopifyUrl || !shopifyToken) return { found: false };
   try {
-    var response = await fetch('https://' + SHOPIFY_URL + '/admin/api/2024-01/orders.json?name=' + encodeURIComponent(orderNumber) + '&status=any', {
+    var response = await fetch('https://' + shopifyUrl + '/admin/api/2024-01/orders.json?name=' + encodeURIComponent(orderNumber) + '&status=any', {
       headers: {
-        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
+        'X-Shopify-Access-Token': shopifyToken,
         'Content-Type': 'application/json'
       }
     });
     var data = await response.json();
     if (data.orders && data.orders.length > 0) {
       var order = data.orders[0];
+      var statusFr = 'en attente';
+      if (order.fulfillment_status === 'fulfilled') statusFr = 'livrée';
+      if (order.fulfillment_status === 'partial') statusFr = 'partiellement livrée';
+      if (order.financial_status === 'pending') statusFr = 'en attente de paiement';
       return {
         found: true,
         number: order.name,
-        status: order.fulfillment_status || 'en attente',
+        status: statusFr,
         total: order.total_price + ' ' + order.currency,
         createdAt: new Date(order.created_at).toLocaleDateString('fr-FR'),
         trackingUrl: order.fulfillments && order.fulfillments[0] ? order.fulfillments[0].tracking_url : null,
@@ -69,11 +74,11 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
       'Numéro: ' + orderInfo.number +
       ', Statut: ' + orderInfo.status +
       ', Total: ' + orderInfo.total +
-      ', Date: ' + orderInfo.createdAt +
+      ', Date de commande: ' + orderInfo.createdAt +
       (orderInfo.trackingNumber ? ', Numéro de suivi: ' + orderInfo.trackingNumber : '') +
       (orderInfo.trackingUrl ? ', Lien de suivi: ' + orderInfo.trackingUrl : '');
   } else if (orderInfo && !orderInfo.found) {
-    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro de commande.';
+    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro de commande au client.';
   }
 
   var systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". " +
@@ -83,7 +88,7 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
     orderContext +
     " Si le client pose une question sans rapport avec la boutique, reponds : " +
     "Je suis uniquement disponible pour vous aider avec vos achats sur " + shopConfig.name + ". " +
-    "Ne reponds JAMAIS a des questions hors boutique. Reponds toujours en français.";
+    "Ne reponds JAMAIS a des questions hors boutique. Reponds toujours en français de manière professionnelle et chaleureuse.";
 
   var response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -111,13 +116,12 @@ app.post('/chat', async (req, res) => {
   var message = req.body.message;
 
   try {
-    // Détecte si le client mentionne un numéro de commande
     var orderNumber = extractOrderNumber(message);
     var orderInfo = null;
 
-    if (orderNumber) {
-      console.log('Recherche commande Shopify:', orderNumber);
-      orderInfo = await getShopifyOrder(orderNumber);
+    if (orderNumber && shopConfig.shopifyUrl && shopConfig.shopifyToken) {
+      console.log('Recherche commande Shopify:', orderNumber, 'pour', shopConfig.name);
+      orderInfo = await getShopifyOrder(orderNumber, shopConfig.shopifyUrl, shopConfig.shopifyToken);
     }
 
     var reply = await askMistral(message, shopConfig, orderInfo);

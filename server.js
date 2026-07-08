@@ -10,24 +10,28 @@ app.use(express.static('.'));
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
-// Charge la config d'une boutique depuis shop.json
+// Charge la config d'une boutique
 function getShop(shopId) {
   try {
     var shops = JSON.parse(fs.readFileSync('shop.json'));
-    return shops[shopId] || shops['SHOP_001'];
+    var shop = shops[shopId] || shops['SHOP_001'];
+    // Charge les clés Shopify depuis les variables d'environnement
+    shop.shopifyUrl = process.env[shopId + '_SHOPIFY_URL'] || process.env['SHOP_001_SHOPIFY_URL'] || '';
+    shop.shopifyToken = process.env[shopId + '_SHOPIFY_TOKEN'] || process.env['SHOP_001_SHOPIFY_TOKEN'] || '';
+    return shop;
   } catch(e) {
     return {
       name: 'Boutique',
       returnPolicy: '30 jours',
       shippingDays: '3 à 5',
       color: '#4F46E5',
-      shopifyUrl: '',
-      shopifyToken: ''
+      shopifyUrl: process.env['SHOP_001_SHOPIFY_URL'] || '',
+      shopifyToken: process.env['SHOP_001_SHOPIFY_TOKEN'] || ''
     };
   }
 }
 
-// Cherche une commande sur Shopify avec les clés de la boutique
+// Cherche une commande sur Shopify
 async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
   if (!shopifyUrl || !shopifyToken) return { found: false };
   try {
@@ -61,7 +65,7 @@ async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
   }
 }
 
-// Détecte si le message contient un numéro de commande
+// Détecte un numéro de commande dans le message
 function extractOrderNumber(message) {
   var match = message.match(/#?(\d{4,})/);
   return match ? '#' + match[1] : null;
@@ -74,11 +78,11 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
       'Numéro: ' + orderInfo.number +
       ', Statut: ' + orderInfo.status +
       ', Total: ' + orderInfo.total +
-      ', Date de commande: ' + orderInfo.createdAt +
+      ', Date: ' + orderInfo.createdAt +
       (orderInfo.trackingNumber ? ', Numéro de suivi: ' + orderInfo.trackingNumber : '') +
       (orderInfo.trackingUrl ? ', Lien de suivi: ' + orderInfo.trackingUrl : '');
   } else if (orderInfo && !orderInfo.found) {
-    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro de commande au client.';
+    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro.';
   }
 
   var systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". " +
@@ -88,7 +92,7 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
     orderContext +
     " Si le client pose une question sans rapport avec la boutique, reponds : " +
     "Je suis uniquement disponible pour vous aider avec vos achats sur " + shopConfig.name + ". " +
-    "Ne reponds JAMAIS a des questions hors boutique. Reponds toujours en français de manière professionnelle et chaleureuse.";
+    "Ne reponds JAMAIS a des questions hors boutique. Reponds toujours en français de manière professionnelle.";
 
   var response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -109,7 +113,6 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
   return data.choices[0].message.content;
 }
 
-// Route chat principale
 app.post('/chat', async (req, res) => {
   var shopId = req.body.shopId || 'SHOP_001';
   var shopConfig = getShop(shopId);
@@ -120,7 +123,7 @@ app.post('/chat', async (req, res) => {
     var orderInfo = null;
 
     if (orderNumber && shopConfig.shopifyUrl && shopConfig.shopifyToken) {
-      console.log('Recherche commande Shopify:', orderNumber, 'pour', shopConfig.name);
+      console.log('Recherche commande:', orderNumber, 'pour', shopConfig.name);
       orderInfo = await getShopifyOrder(orderNumber, shopConfig.shopifyUrl, shopConfig.shopifyToken);
     }
 
@@ -132,7 +135,6 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-// Route config boutique
 app.get('/config/:shopId', (req, res) => {
   var shop = getShop(req.params.shopId);
   res.json({ name: shop.name, color: shop.color });

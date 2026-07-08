@@ -1,14 +1,52 @@
 {
   "SHOP_001": {
     "name": "Ma Boutique Test",
-    "returnPolicy": "30 jours après réception, article non utilisé",
+    "returnPolicy": "30 jours après réception, article non utilisé et dans son emballage d'origine",
     "shippingDays": "3 à 5",
-    "color": "#4F46E5"
-  },
-  "SHOP_002": {
-    "name": "ModeLux Paris",
-    "returnPolicy": "14 jours, article dans son emballage d'origine",
-    "shippingDays": "2 à 3",
-    "color": "#E11D48"
+    "color": "#4F46E5",
+    "faq": {
+      "livraison": {
+        "delai": "3 à 5 jours ouvrés en France métropolitaine",
+        "transporteurs": "Colissimo et Chronopost",
+        "gratuite": "Livraison gratuite dès 50€ d'achat",
+        "internationale": "Nous livrons en Europe. Délai : 5 à 10 jours ouvrés. Des frais supplémentaires peuvent s'appliquer.",
+        "colisPerdu": "Si votre colis est perdu, contactez-nous à cr8management@gmail.com avec votre numéro de commande. Nous ouvrons une enquête auprès du transporteur sous 24h.",
+        "colisEndommage": "Si votre colis arrive endommagé, prenez une photo et contactez-nous immédiatement. Nous vous renvoyons l'article ou vous remboursons selon votre préférence.",
+        "suivi": "Un email avec le numéro de suivi vous est envoyé dès l'expédition de votre commande."
+      },
+      "retours": {
+        "comment": "Connectez-vous à votre espace client, allez dans Mes commandes, cliquez sur Retourner un article et suivez les instructions. Une étiquette de retour vous sera envoyée par email.",
+        "delaiRemboursement": "Le remboursement est effectué sous 5 à 7 jours ouvrés après réception et vérification de l'article retourné.",
+        "articleDefectueux": "Si vous recevez un article défectueux ou qui ne correspond pas à votre commande, contactez-nous immédiatement. Nous prenons en charge les frais de retour et vous renvoyons l'article ou vous remboursons.",
+        "echange": "Nous proposons des échanges ! Retournez l'article et passez une nouvelle commande. Les frais de retour sont à votre charge sauf si l'article est défectueux.",
+        "fraisRetour": "Les frais de retour sont à la charge du client sauf en cas d'article défectueux ou d'erreur de notre part."
+      },
+      "paiement": {
+        "modes": "Nous acceptons les cartes bancaires (Visa, Mastercard, Amex), PayPal, Apple Pay et Google Pay.",
+        "plusieursFois": "Nous proposons le paiement en 3x sans frais dès 100€ d'achat via Klarna.",
+        "debiteSansConfirmation": "Si votre carte a été débitée mais vous n'avez pas reçu de confirmation, vérifiez vos spams. Si le problème persiste, contactez-nous à cr8management@gmail.com avec votre numéro de transaction.",
+        "securite": "Tous nos paiements sont sécurisés par cryptage SSL. Nous ne stockons aucune donnée bancaire.",
+        "facture": "Une facture vous est automatiquement envoyée par email après chaque commande."
+      },
+      "compte": {
+        "creerCompte": "Cliquez sur Mon compte en haut de la page, puis sur Créer un compte. Renseignez votre email et choisissez un mot de passe.",
+        "motDePasseOublie": "Cliquez sur Mon compte puis sur Mot de passe oublié. Entrez votre email et vous recevrez un lien de réinitialisation.",
+        "modifierAdresse": "Connectez-vous à votre compte, allez dans Mes adresses et modifiez ou ajoutez une adresse. Attention : si votre commande est déjà expédiée, l'adresse ne peut plus être modifiée.",
+        "supprimerCompte": "Pour supprimer votre compte, contactez-nous à cr8management@gmail.com. Vos données seront supprimées sous 30 jours conformément au RGPD."
+      },
+      "produits": {
+        "guideTailles": "Un guide des tailles est disponible sur chaque fiche produit. En cas de doute, choisissez la taille supérieure.",
+        "disponibilite": "Les stocks sont mis à jour en temps réel sur le site. Si un article est en rupture, vous pouvez activer l'alerte de réapprovisionnement sur la fiche produit.",
+        "garantie": "Tous nos produits sont garantis 2 ans conformément à la législation européenne.",
+        "authenticite": "Tous nos produits sont 100% authentiques et proviennent directement des fournisseurs officiels.",
+        "codePromo": "Entrez votre code promo dans le champ prévu à cet effet lors du paiement. Un seul code promo par commande."
+      },
+      "general": {
+        "contact": "Vous pouvez nous contacter par email à cr8management@gmail.com. Nous répondons sous 24h du lundi au vendredi.",
+        "horaires": "Notre service client est disponible du lundi au vendredi de 9h à 18h. En dehors de ces horaires, notre assistant IA reste disponible 24h/24.",
+        "reclamation": "Pour toute réclamation, contactez-nous à cr8management@gmail.com. Nous nous engageons à vous répondre sous 48h.",
+        "fidelite": "Nous n'avons pas encore de programme de fidélité mais il arrive bientôt ! Inscrivez-vous à notre newsletter pour être informé."
+      }
+    }
   }
 }

@@ -185,13 +185,27 @@ async function askMistral(userMessage, shopConfig, orderInfo, produits) {
       '\nUtilise ces infos pour répondre aux questions sur les produits, stocks et prix.';
   }
 
+  // Construit le contexte FAQ
+  var faqContext = '';
+  if (shopConfig.faq) {
+    var faq = shopConfig.faq;
+    faqContext = '\n\nFAQ ET INFORMATIONS DE LA BOUTIQUE:\n';
+    if (faq.livraison) faqContext += 'LIVRAISON: ' + JSON.stringify(faq.livraison) + '\n';
+    if (faq.retours) faqContext += 'RETOURS: ' + JSON.stringify(faq.retours) + '\n';
+    if (faq.paiement) faqContext += 'PAIEMENT: ' + JSON.stringify(faq.paiement) + '\n';
+    if (faq.compte) faqContext += 'COMPTE CLIENT: ' + JSON.stringify(faq.compte) + '\n';
+    if (faq.produits) faqContext += 'PRODUITS: ' + JSON.stringify(faq.produits) + '\n';
+    if (faq.general) faqContext += 'GENERAL: ' + JSON.stringify(faq.general) + '\n';
+    faqContext += 'Utilise ces informations pour répondre aux questions fréquentes des clients.';
+  }
+
   var systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". " +
-    "Tu reponds SEULEMENT aux questions liées à la boutique : commandes, livraisons, retours, produits, stocks, prix, paiements, promotions. " +
+    "Tu reponds SEULEMENT aux questions liées à la boutique : commandes, livraisons, retours, produits, stocks, prix, paiements, promotions, compte client. " +
     "Politique de retours : " + shopConfig.returnPolicy + ". " +
     "Delai de livraison : " + shopConfig.shippingDays + " jours ouvrés. " +
-    "Modes de paiement acceptés : carte bancaire, PayPal. " +
     orderContext +
     produitsContext +
+    faqContext +
     "\nSi question hors boutique : réponds uniquement 'Je suis disponible uniquement pour vous aider avec vos achats sur " + shopConfig.name + "'. " +
     "Réponds en français, de façon professionnelle, chaleureuse et concise. " +
     "N'utilise jamais de markdown comme ** ou ## dans tes réponses.";
@@ -243,6 +257,19 @@ app.post('/chat', async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, reply: 'Désolé, une erreur est survenue.' });
   }
+});
+
+app.get('/config/:shopId', (req, res) => {
+  var shop = getShop(req.params.shopId);
+  res.json({ name: shop.name, color: shop.color });
+});
+
+app.get('/', (req, res) => {
+  res.json({ status: 'ShopBot est en ligne !' });
+});
+
+app.listen(3000, function() {
+  console.log('ShopBot tourne sur http://localhost:3000');
 });
 
 app.get('/config/:shopId', (req, res) => {

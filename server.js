@@ -10,7 +10,6 @@ app.use(express.static('.'));
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 
-// Charge la config d'une boutique
 function getShop(shopId) {
   try {
     var shops = JSON.parse(fs.readFileSync('shop.json'));
@@ -30,7 +29,6 @@ function getShop(shopId) {
   }
 }
 
-// Cherche une commande sur Shopify
 async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
   if (!shopifyUrl || !shopifyToken) return { found: false };
   try {
@@ -41,31 +39,104 @@ async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
       }
     });
     var data = await response.json();
-    if (data.orders && data.orders.length > 0) {
-      var order = data.orders[0];
-      var statusFr = 'en attente';
-      if (order.fulfillment_status === 'fulfilled') statusFr = 'livrée';
-      if (order.fulfillment_status === 'partial') statusFr = 'partiellement expédiée';
-      if (order.financial_status === 'pending') statusFr = 'en attente de paiement';
-      return {
-        found: true,
-        number: order.name,
-        status: statusFr,
-        total: order.total_price + ' ' + order.currency,
-        createdAt: new Date(order.created_at).toLocaleDateString('fr-FR'),
-        items: order.line_items.map(function(i){ return i.name + ' x' + i.quantity; }).join(', '),
-        trackingUrl: order.fulfillments && order.fulfillments[0] ? order.fulfillments[0].tracking_url : null,
-        trackingNumber: order.fulfillments && order.fulfillments[0] ? order.fulfillments[0].tracking_number : null
-      };
+    if (!data.orders || data.orders.length === 0) return { found: false };
+
+    var order = data.orders[0];
+
+    // Statut global
+    var statutGlobal = 'en attente';
+    if (order.fulfillment_status === 'fulfilled') statutGlobal = 'entièrement livrée';
+    if (order.fulfillment_status === 'partial') statutGlobal = 'partiellement livrée';
+    if (order.fulfillment_status === null && order.financial_status === 'paid') statutGlobal = 'payée, en attente expédition';
+    if (order.cancelled_at) statutGlobal = 'annulée';
+
+    // Statut paiement
+    var statutPaiement = order.financial_status;
+    if (order.financial_status === 'paid') statutPaiement = 'payée';
+    if (order.financial_status === 'partially_refunded') statutPaiement = 'partiellement remboursée';
+    if (order.financial_status === 'refunded') statutPaiement = 'entièrement remboursée';
+    if (order.financial_status === 'pending') statutPaiement = 'en attente de paiement';
+
+    // Articles commandés avec leur statut individuel
+    var articles = order.line_items.map(function(item) {
+      var statut = 'en attente expédition';
+      if (item.fulfillment_status === 'fulfilled') statut = 'livré';
+      if (item.fulfillment_status === null && order.cancelled_at) statut = 'annulé';
+      return item.name + ' (qté: ' + item.quantity + ', prix: ' + item.price + ' ' + order.currency + ', statut: ' + statut + ')';
+    }).join(' | ');
+
+    // Expéditions (peut y en avoir plusieurs = livraison en plusieurs fois)
+    var expeditions = [];
+    if (order.fulfillments && order.fulfillments.length > 0) {
+      order.fulfillments.forEach(function(f, index) {
+        var articlesExp = f.line_items.map(function(i){ return i.name + ' x' + i.quantity; }).join(', ');
+        var dateExp = new Date(f.created_at).toLocaleDateString('fr-FR');
+        var statutExp = f.status === 'success' ? 'livré' : f.status;
+        expeditions.push(
+          'Expédition ' + (index + 1) + ': ' + articlesExp +
+          ', Date: ' + dateExp +
+          ', Statut: ' + statutExp +
+          (f.tracking_number ? ', Numéro suivi: ' + f.tracking_number : '') +
+          (f.tracking_url ? ', Lien suivi: ' + f.tracking_url : '') +
+          (f.tracking_company ? ', Transporteur: ' + f.tracking_company : '')
+        );
+      });
     }
-    return { found: false };
+
+    // Remboursements
+    var remboursements = [];
+    if (order.refunds && order.refunds.length > 0) {
+      order.refunds.forEach(function(refund, index) {
+        var montantRembourse = '0';
+        if (refund.transactions && refund.transactions.length > 0) {
+          montantRembourse = refund.transactions.reduce(function(sum, t){ return sum + parseFloat(t.amount); }, 0).toFixed(2);
+        }
+        var articlesRembourses = '';
+        if (refund.refund_line_items && refund.refund_line_items.length > 0) {
+          articlesRembourses = refund.refund_line_items.map(function(r){
+            return r.line_item.name + ' x' + r.quantity;
+          }).join(', ');
+        }
+        var dateRemboursement = new Date(refund.created_at).toLocaleDateString('fr-FR');
+        remboursements.push(
+          'Remboursement ' + (index + 1) + ': ' +
+          (articlesRembourses ? 'Articles: ' + articlesRembourses + ', ' : '') +
+          'Montant: ' + montantRembourse + ' ' + order.currency +
+          ', Date: ' + dateRemboursement +
+          (refund.note ? ', Raison: ' + refund.note : '')
+        );
+      });
+    }
+
+    // Annulation
+    var annulation = '';
+    if (order.cancelled_at) {
+      annulation = 'Commande annulée le ' + new Date(order.cancelled_at).toLocaleDateString('fr-FR') +
+        (order.cancel_reason ? ', Raison: ' + order.cancel_reason : '');
+    }
+
+    return {
+      found: true,
+      number: order.name,
+      statutGlobal: statutGlobal,
+      statutPaiement: statutPaiement,
+      total: order.total_price + ' ' + order.currency,
+      sousTotal: order.subtotal_price + ' ' + order.currency,
+      totalRemboursé: order.total_refunds || '0',
+      createdAt: new Date(order.created_at).toLocaleDateString('fr-FR'),
+      articles: articles,
+      expeditions: expeditions.length > 0 ? expeditions.join(' || ') : 'Aucune expédition encore',
+      remboursements: remboursements.length > 0 ? remboursements.join(' || ') : '',
+      annulation: annulation,
+      noteCommande: order.note || ''
+    };
+
   } catch(e) {
     console.error('Erreur Shopify:', e);
     return { found: false };
   }
 }
 
-// Détecte un numéro de commande dans le message
 function extractOrderNumber(message) {
   var match = message.match(/#?(\d{4,})/);
   return match ? '#' + match[1] : null;
@@ -74,16 +145,21 @@ function extractOrderNumber(message) {
 async function askMistral(userMessage, shopConfig, orderInfo) {
   var orderContext = '';
   if (orderInfo && orderInfo.found) {
-    orderContext = '\nInformations commande trouvée : ' +
-      'Numéro: ' + orderInfo.number +
-      ', Statut: ' + orderInfo.status +
-      ', Articles commandés: ' + orderInfo.items +
-      ', Total: ' + orderInfo.total +
-      ', Date de commande: ' + orderInfo.createdAt +
-      (orderInfo.trackingNumber ? ', Numéro de suivi: ' + orderInfo.trackingNumber : ', Pas encore de numéro de suivi disponible') +
-      (orderInfo.trackingUrl ? ', Lien de suivi: ' + orderInfo.trackingUrl : '');
+    orderContext = '\n\nINFORMATIONS COMPLÈTES DE LA COMMANDE:\n' +
+      'Numéro: ' + orderInfo.number + '\n' +
+      'Date de commande: ' + orderInfo.createdAt + '\n' +
+      'Statut global: ' + orderInfo.statutGlobal + '\n' +
+      'Statut paiement: ' + orderInfo.statutPaiement + '\n' +
+      'Sous-total: ' + orderInfo.sousTotal + '\n' +
+      'Total payé: ' + orderInfo.total + '\n' +
+      'Articles commandés: ' + orderInfo.articles + '\n' +
+      'Expéditions: ' + orderInfo.expeditions + '\n' +
+      (orderInfo.remboursements ? 'Remboursements: ' + orderInfo.remboursements + '\n' : '') +
+      (orderInfo.annulation ? 'Annulation: ' + orderInfo.annulation + '\n' : '') +
+      (orderInfo.noteCommande ? 'Note: ' + orderInfo.noteCommande + '\n' : '') +
+      '\nPrésente ces informations de manière claire, organisée et rassurante pour le client. Ne copie pas les données brutes mot pour mot, reformule de façon naturelle et humaine.';
   } else if (orderInfo && !orderInfo.found) {
-    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro de commande au client.';
+    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro de commande.';
   }
 
   var systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". " +
@@ -91,11 +167,10 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
     "Politique de retours : " + shopConfig.returnPolicy + ". " +
     "Delai de livraison : " + shopConfig.shippingDays + " jours ouvrés. " +
     orderContext +
-    " Si le client pose une question sans rapport avec la boutique, reponds : " +
-    "Je suis uniquement disponible pour vous aider avec vos achats sur " + shopConfig.name + ". " +
+    "\nSi le client pose une question sans rapport avec la boutique, reponds : Je suis uniquement disponible pour vous aider avec vos achats sur " + shopConfig.name + ". " +
     "Ne reponds JAMAIS a des questions hors boutique. " +
-    "Reponds toujours en français de manière professionnelle et chaleureuse. " +
-    "Présente les informations de commande de façon claire et lisible, sans utiliser de markdown comme ** ou ##.";
+    "Reponds toujours en français de manière professionnelle, chaleureuse et rassurante. " +
+    "N'utilise jamais de markdown comme ** ou ## dans tes réponses.";
 
   var response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',

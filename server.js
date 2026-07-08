@@ -15,7 +15,6 @@ function getShop(shopId) {
   try {
     var shops = JSON.parse(fs.readFileSync('shop.json'));
     var shop = shops[shopId] || shops['SHOP_001'];
-    // Charge les clés Shopify depuis les variables d'environnement
     shop.shopifyUrl = process.env[shopId + '_SHOPIFY_URL'] || process.env['SHOP_001_SHOPIFY_URL'] || '';
     shop.shopifyToken = process.env[shopId + '_SHOPIFY_TOKEN'] || process.env['SHOP_001_SHOPIFY_TOKEN'] || '';
     return shop;
@@ -46,7 +45,7 @@ async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
       var order = data.orders[0];
       var statusFr = 'en attente';
       if (order.fulfillment_status === 'fulfilled') statusFr = 'livrée';
-      if (order.fulfillment_status === 'partial') statusFr = 'partiellement livrée';
+      if (order.fulfillment_status === 'partial') statusFr = 'partiellement expédiée';
       if (order.financial_status === 'pending') statusFr = 'en attente de paiement';
       return {
         found: true,
@@ -54,6 +53,7 @@ async function getShopifyOrder(orderNumber, shopifyUrl, shopifyToken) {
         status: statusFr,
         total: order.total_price + ' ' + order.currency,
         createdAt: new Date(order.created_at).toLocaleDateString('fr-FR'),
+        items: order.line_items.map(function(i){ return i.name + ' x' + i.quantity; }).join(', '),
         trackingUrl: order.fulfillments && order.fulfillments[0] ? order.fulfillments[0].tracking_url : null,
         trackingNumber: order.fulfillments && order.fulfillments[0] ? order.fulfillments[0].tracking_number : null
       };
@@ -77,12 +77,13 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
     orderContext = '\nInformations commande trouvée : ' +
       'Numéro: ' + orderInfo.number +
       ', Statut: ' + orderInfo.status +
+      ', Articles commandés: ' + orderInfo.items +
       ', Total: ' + orderInfo.total +
-      ', Date: ' + orderInfo.createdAt +
-      (orderInfo.trackingNumber ? ', Numéro de suivi: ' + orderInfo.trackingNumber : '') +
+      ', Date de commande: ' + orderInfo.createdAt +
+      (orderInfo.trackingNumber ? ', Numéro de suivi: ' + orderInfo.trackingNumber : ', Pas encore de numéro de suivi disponible') +
       (orderInfo.trackingUrl ? ', Lien de suivi: ' + orderInfo.trackingUrl : '');
   } else if (orderInfo && !orderInfo.found) {
-    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro.';
+    orderContext = '\nAucune commande trouvée avec ce numéro. Demande poliment le bon numéro de commande au client.';
   }
 
   var systemPrompt = "Tu es UNIQUEMENT l'assistant support de la boutique " + shopConfig.name + ". " +
@@ -92,7 +93,9 @@ async function askMistral(userMessage, shopConfig, orderInfo) {
     orderContext +
     " Si le client pose une question sans rapport avec la boutique, reponds : " +
     "Je suis uniquement disponible pour vous aider avec vos achats sur " + shopConfig.name + ". " +
-    "Ne reponds JAMAIS a des questions hors boutique. Reponds toujours en français de manière professionnelle.";
+    "Ne reponds JAMAIS a des questions hors boutique. " +
+    "Reponds toujours en français de manière professionnelle et chaleureuse. " +
+    "Présente les informations de commande de façon claire et lisible, sans utiliser de markdown comme ** ou ##.";
 
   var response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',

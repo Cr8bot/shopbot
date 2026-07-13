@@ -18,8 +18,8 @@ function getShop(shopId) {
   try {
     var shops = JSON.parse(fs.readFileSync('shop.json'));
     var shop = shops[shopId] || shops['SHOP_001'];
-    shop.shopifyUrl = process.env[shopId + '_SHOPIFY_URL'] || process.env['SHOP_001_SHOPIFY_URL'] || '';
-    shop.shopifyToken = process.env[shopId + '_SHOPIFY_TOKEN'] || process.env['SHOP_001_SHOPIFY_TOKEN'] || '';
+    shop.shopifyUrl = shopId !== 'SHOP_DEMO' ? (process.env[shopId + '_SHOPIFY_URL'] || process.env['SHOP_001_SHOPIFY_URL'] || '') : '';
+    shop.shopifyToken = shopId !== 'SHOP_DEMO' ? (process.env[shopId + '_SHOPIFY_TOKEN'] || process.env['SHOP_001_SHOPIFY_TOKEN'] || '') : '';
     return shop;
   } catch(e) {
     return {

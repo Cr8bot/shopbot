@@ -4,7 +4,11 @@ const cors = require('cors');
 const fs = require('fs');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 app.use(express.static('.'));
 
@@ -257,19 +261,6 @@ app.post('/chat', async (req, res) => {
     console.error(error);
     res.status(500).json({ success: false, reply: 'Désolé, une erreur est survenue.' });
   }
-});
-
-app.get('/config/:shopId', (req, res) => {
-  var shop = getShop(req.params.shopId);
-  res.json({ name: shop.name, color: shop.color });
-});
-
-app.get('/', (req, res) => {
-  res.json({ status: 'ShopBot est en ligne !' });
-});
-
-app.listen(3000, function() {
-  console.log('ShopBot tourne sur http://localhost:3000');
 });
 
 app.get('/config/:shopId', (req, res) => {

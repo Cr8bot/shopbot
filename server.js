@@ -211,7 +211,8 @@ async function askMistral(userMessage, shopConfig, orderInfo, produits) {
     produitsContext +
     faqContext +
     "\nSi question hors boutique : réponds uniquement 'Je suis disponible uniquement pour vous aider avec vos achats sur " + shopConfig.name + "'. " +
-    "Réponds en français, de façon professionnelle, chaleureuse et concise. " +
+    "Réponds toujours dans la même langue que le client. Si le client écrit en français réponds en français, si en anglais réponds en anglais, si en espagnol réponds en espagnol, etc. " +
+    "Sois professionnel, chaleureux et concis. " +
     "N'utilise jamais de markdown comme ** ou ## dans tes réponses.";
 
   var response = await fetch('https://api.mistral.ai/v1/chat/completions', {
